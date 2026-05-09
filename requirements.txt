@@ -1,1 +1,1 @@
-"pandas\nselenium\nboto3" 
+"pandas\selenium\boto3" 
