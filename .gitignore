@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.env
+
+# AWS & Credentials
+.aws/
+credentials
+*.pem
+
+# BI & OS
+*.tmp
+.DS_Store
