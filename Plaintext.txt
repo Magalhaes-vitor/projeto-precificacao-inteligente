@@ -1,0 +1,8 @@
+projeto-precificacao-inteligente/
+├── .gitignore
+├── README.md
+├── requirements.txt
+├── scrapers/          # Scripts Python de raspagem (Selenium/BeautifulSoup)
+├── aws/               # Queries SQL do Athena e scripts do Glue
+├── bi/                # Arquivo .pbix do Power BI (ou screenshots do dashboard)
+└── data_samples/      # Pequenos exemplos de JSON/CSV (não suba dados reais sensíveis)

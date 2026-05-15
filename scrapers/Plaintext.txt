@@ -1,0 +1,7 @@
+projeto-precificacao-inteligente/
+├── ...
+└── scrapers/
+    ├── __init__.py               # Arquivo vazio (indica que é um módulo Python)
+    ├── config_produtos.json      # Nossa lista de produtos
+    ├── base_scraper.py           # Nossa Classe Mãe (Padrão de Projeto)
+    └── mercado_livre_scraper.py  # Nosso primeiro alvo

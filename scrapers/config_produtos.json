@@ -1,0 +1,27 @@
+[
+    {
+        "categoria": "cerveja",
+        "marca": "Heineken",
+        "termo_busca": "Cerveja Heineken Lata 350ml"
+    },
+    {
+        "categoria": "cerveja",
+        "marca": "Spaten",
+        "termo_busca": "Cerveja Spaten Lata 350ml"
+    },
+    {
+        "categoria": "whisky",
+        "marca": "Johnnie Walker",
+        "termo_busca": "Whisky Johnnie Walker Red Label 1L"
+    },
+    {
+        "categoria": "energetico",
+        "marca": "Red Bull",
+        "termo_busca": "Energetico Red Bull Energy Drink Lata 250ml"
+    },
+    {
+        "categoria": "refrigerante",
+        "marca": "Coca-Cola",
+        "termo_busca": "Refrigerante Coca-Cola Pet 2L"
+    }
+]
