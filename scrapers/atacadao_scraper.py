@@ -23,13 +23,13 @@ class AtacadaoScraper(BaseScraper):
         edge_options.add_argument("--disable-blink-features=AutomationControlled")
         edge_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         
-        self.logger.info("Inicializando motor do Edge para o Atacadão...")
+        self.logger.info("Inicializando motor do Edge para o Atacadao...")
         driver = webdriver.Edge(options=edge_options)
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         return driver
 
     def _definir_localizacao(self):
-        self.logger.info(f"Iniciando fluxo de localização para o CEP: {self.cep_padrao}")
+        self.logger.info(f"Iniciando fluxo de localizacao para o CEP: {self.cep_padrao}")
         try:
             # 1. Limpar banner de cookies
             self.driver.execute_script("""
@@ -39,7 +39,6 @@ class AtacadaoScraper(BaseScraper):
             time.sleep(1)
 
             # 2. Clicar no botão do header
-            self.logger.info("A tentar abrir o popover de CEP...")
             self.driver.execute_script("""
                 let btnCep = document.querySelector('button[data-testid="userZipCode"], button[data-testid="userZipCode-mobile"]');
                 if(btnCep) btnCep.click();
@@ -71,31 +70,27 @@ class AtacadaoScraper(BaseScraper):
 
             if encontrou_input:
                 ativo = self.driver.switch_to.active_element
-                # Limpar campo
                 for _ in range(15):
                     ativo.send_keys(Keys.BACKSPACE)
                     ativo.send_keys(Keys.DELETE)
                 time.sleep(0.5)
 
-                self.logger.info("A digitar o CEP...")
                 for char in self.cep_padrao:
                     ativo.send_keys(char)
                     time.sleep(0.1)
                 
                 time.sleep(1.5)
-                # Submeter
                 self.driver.execute_script("""
                     let searchBtn = document.querySelector('button[aria-label*="Buscar"], button[aria-label*="Search"]');
                     if(searchBtn) searchBtn.click();
                 """)
                 time.sleep(1)
                 ativo.send_keys(Keys.ENTER)
-                time.sleep(6) # Aguarda lista
+                time.sleep(6) 
             else:
-                self.logger.warning("Input de CEP não foi focado corretamente!")
+                self.logger.warning("[AVISO] Input de CEP nao foi focado corretamente.")
 
             # 5. Confirmar loja
-            self.logger.info("A tentar confirmar a loja...")
             self.driver.execute_script("""
                 let botoes = document.querySelectorAll('button');
                 for(let b of botoes){
@@ -114,62 +109,107 @@ class AtacadaoScraper(BaseScraper):
                 overlays.forEach(o => o.remove());
             """)
             
-            self.logger.info("Localização confirmada e ecrã libertado!")
+            self.logger.info("[SUCESSO] Localizacao confirmada e ecra libertado.")
 
         except Exception as e:
-            self.logger.error(f"Erro no fluxo de localização: {e}")
+            self.logger.error(f"[ERRO] Falha no fluxo de localizacao: {e}")
 
     def _limpar_termo(self, termo):
         termo_limpo = re.sub(r'\b(lata|pet)\b', '', termo, flags=re.IGNORECASE)
         return re.sub(r'\s+', ' ', termo_limpo).strip()
 
-    def _filtrar_melhor_resultado(self, termo_original, resultados):
+    def _filtrar_melhor_resultado(self, termo_original, marca, resultados):
         if not resultados:
             return None
             
         termo_lower = termo_original.lower()
-        # Deteta se o utilizador pediu explicitamente uma versão "zero/diet/light"
+        marca_norm = marca.lower()
+        marca_variacoes = [marca_norm, marca_norm.replace('-', ' '), marca_norm.replace('-', '')]
+        
+        # Tratamento especial para Coca-Cola 2L
+        if 'coca' in termo_lower and '2l' in termo_lower:
+            for item in resultados:
+                t_norm = item['titulo'].lower().replace('-', ' ')
+                if 'coca' in t_norm and re.search(r'\b2\s*(l|litros?)\b', t_norm):
+                    if not any(w in t_norm for w in ['zero', 'diet', 'sem açúcar', 'sem acucar', 'café', 'cafe']):
+                        return item
+
         busca_zero = any(w in termo_lower for w in ['zero', 'diet', 'light', 'sem açucar', 'sem açúcar'])
+        
+        sabores_comuns = ['café', 'cafe', 'cherry', 'baunilha', 'limão', 'limao', 'laranja', 'maracuja', 'morango', 'uva', 'guaraná', 'guarana']
+        sabores_proibidos = [s for s in sabores_comuns if s not in termo_lower]
 
         padrao_volume = re.search(r'(\d+(?:[.,]\d+)?)\s*(ml|l|kg|g|litros?)\b', termo_original, flags=re.IGNORECASE)
-        volume_buscado = None
-        if padrao_volume:
-            numero = padrao_volume.group(1).replace(',', '.')
-            unidade = padrao_volume.group(2).lower()
-            if unidade.startswith('litro'): 
-                unidade = 'l'
-            volume_buscado = f"{numero}{unidade}"
-
-        melhor_item = None
+        vol_buscado_val = -1
+        tipo_medida = None
         
+        def extrair_medida(v_num_str, v_unit):
+            try:
+                val = float(v_num_str.replace(',', '.'))
+                if v_unit == 'l' or v_unit.startswith('litro'): return val * 1000, 'ml'
+                if v_unit == 'ml': return val, 'ml'
+                if v_unit == 'kg': return val * 1000, 'g'
+                if v_unit == 'g': return val, 'g'
+                return -1, None
+            except:
+                return -1, None
+
+        if padrao_volume:
+            v_n = padrao_volume.group(1)
+            v_u = padrao_volume.group(2).lower()
+            vol_buscado_val, tipo_medida = extrair_medida(v_n, v_u)
+
         for item in resultados:
             titulo_norm = item['titulo'].lower()
-            titulo_norm = titulo_norm.replace('litros', 'l').replace('litro', 'l')
-            titulo_norm = re.sub(r'(\d)\s+(ml|l|kg|g)\b', r'\1\2', titulo_norm) 
             
-            # 1. Filtro de Negativos: Pula itens "Zero/Diet" se não foram pedidos
+            # 1. Filtro Marca
+            if not any(m in titulo_norm for m in marca_variacoes):
+                continue
+            
+            # 2. Sabores Proibidos
+            if any(re.search(rf'\b{s}\b', titulo_norm) for s in sabores_proibidos):
+                continue
+            
+            # 3. Diet/Light/Zero
             is_zero = any(w in titulo_norm for w in ['zero', 'diet', 'light', 'sem açucar', 'sem açúcar'])
-            if not busca_zero and is_zero:
-                continue
+            if busca_zero and not is_zero: continue
+            if not busca_zero and is_zero: continue
                 
-            # 2. Filtro de Volume Exato
-            if volume_buscado and not re.search(rf'\b{volume_buscado}\b', titulo_norm):
-                continue
-                
-            melhor_item = item
-            break
+            # 4. Embalagem Lata/Pet
+            is_lata_busca = 'lata' in termo_lower
+            is_pet_busca = 'pet' in termo_lower or 'garrafa' in termo_lower
+            is_lata_item = 'lata' in titulo_norm
+            is_pet_item = 'pet' in titulo_norm or 'garrafa' in titulo_norm
+
+            if is_lata_busca and is_pet_item: continue
+            if is_pet_busca and is_lata_item: continue
+
+            # 5. Volume Semântico
+            titulo_norm_medida = titulo_norm.replace('litros', 'l').replace('litro', 'l')
+            titulo_norm_medida = re.sub(r'(\d)\s+(ml|l|kg|g)\b', r'\1\2', titulo_norm_medida) 
             
-        # Fallback 1: Retorna o primeiro que bata o volume (se os filtros normais forem muito restritos)
-        if not melhor_item and volume_buscado:
-            for item in resultados:
-                titulo_norm = item['titulo'].lower()
-                titulo_norm = titulo_norm.replace('litros', 'l').replace('litro', 'l')
-                titulo_norm = re.sub(r'(\d)\s+(ml|l|kg|g)\b', r'\1\2', titulo_norm) 
-                if re.search(rf'\b{volume_buscado}\b', titulo_norm):
-                    return item
-                    
-        # Fallback 2: Retorna o primeiro da lista
-        return melhor_item if melhor_item else resultados[0]
+            if vol_buscado_val > 0:
+                vols_no_titulo = re.findall(r'\b(\d+(?:[.,]\d+)?)(ml|l|kg|g)\b', titulo_norm_medida)
+                
+                achou_vol_correto = False
+                tem_vol_errado = False
+                
+                for vn, vu in vols_no_titulo:
+                    v_val, v_tipo = extrair_medida(vn, vu)
+                    if v_tipo == tipo_medida and v_val > 0:
+                        if v_val == vol_buscado_val:
+                            achou_vol_correto = True
+                        else:
+                            tem_vol_errado = True
+                
+                if not achou_vol_correto:
+                    continue
+                if tem_vol_errado:
+                    continue
+                
+            return item 
+            
+        return None
 
     def extrair_dados(self):
         produtos = self.carregar_produtos_alvo()
@@ -183,9 +223,10 @@ class AtacadaoScraper(BaseScraper):
 
             for produto in produtos:
                 termo_original = produto['termo_busca']
+                marca_alvo = produto['marca']
                 termo_pesquisa = self._limpar_termo(termo_original)
                 
-                self.logger.info(f"A pesquisar: {termo_pesquisa} (Filtro por: {termo_original})")
+                self.logger.info(f"Processando: {termo_pesquisa} | Marca: {marca_alvo}")
 
                 search_box = self.driver.execute_script("""
                     let input = document.querySelector('input[data-testid="store-input"], input[type="search"]');
@@ -226,7 +267,7 @@ class AtacadaoScraper(BaseScraper):
                         return res;
                     """)
 
-                    item_data = self._filtrar_melhor_resultado(termo_original, resultados_dropdown)
+                    item_data = self._filtrar_melhor_resultado(termo_original, marca_alvo, resultados_dropdown)
 
                     if item_data and item_data['preco']:
                         dados_norm = self.normalizar_preco(item_data['titulo'], float(item_data['preco']))
@@ -241,19 +282,19 @@ class AtacadaoScraper(BaseScraper):
                             "quantidade_embalagem": dados_norm["quantidade_embalagem"],
                             "preco_total_anuncio": dados_norm["preco_total_anuncio"],
                             "preco_unitario": dados_norm["preco_unitario"],
-                            "link": "Extraído via Menu Dropdown"
+                            "link": "Extraido via Menu Dropdown"
                         })
-                        self.logger.info(f"✅ Match Encontrado: {item_data['titulo']} | R${dados_norm['preco_unitario']}")
+                        self.logger.info(f"[SUCESSO] Item capturado: {item_data['titulo'][:30]}... | Preco Unitario: R${dados_norm['preco_unitario']}")
                     else:
-                        self.logger.warning(f"❌ Produto não encontrado ou incompatível nas sugestões.")
+                        self.logger.warning(f"[AVISO] Nenhum item atendeu aos criterios para: {termo_original}")
                     
                     ativo.send_keys(Keys.ESCAPE)
                     time.sleep(1.5)
                 else:
-                    self.logger.error("❌ BARRA DE PESQUISA NÃO ENCONTRADA.")
+                    self.logger.error("[ERRO] Barra de pesquisa nao encontrada.")
 
         except Exception as e:
-            self.logger.error(f"Erro na extração do Atacadão: {e}")
+            self.logger.error(f"[ERRO] Falha na extracao do Atacadao: {e}")
         finally:
             self.salvar_dados()
             if self.driver: self.driver.quit()
