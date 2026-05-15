@@ -26,8 +26,8 @@ O pipeline foi desenhado seguindo as melhores práticas de Engenharia de Dados:
 
 ## 📈 Status do Projeto
 - [x] Definição da Arquitetura
-- [ ] Desenvolvimento do Scraper (Em andamento)
-- [ ] Configuração do ambiente AWS
+- [x] Desenvolvimento do Scraper 
+- [ ] Configuração do ambiente AWS (Em andamento)
 - [ ] Construção do Dashboard
 
 ---
