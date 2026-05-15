@@ -1,0 +1,62 @@
+[
+    {
+        "data_extracao": "2026-05-15T18:52:00.267106",
+        "site": "Amazon",
+        "categoria": "cerveja",
+        "marca": "Heineken",
+        "termo_buscado": "Cerveja Heineken Lata 350ml",
+        "titulo_anuncio": "Heineken Cerveja Sleek Lata 350ml Pack 12 Unidades",
+        "quantidade_embalagem": 12,
+        "preco_total_anuncio": 55.08,
+        "preco_unitario": 4.59,
+        "link": "https://www.amazon.com.br/sspa/click?ie=UTF8&spc=MTozNDE1NTExNzE1NTQxMDA1OjE3Nzg4ODE4NDE6c3BfYXRmOjMwMTE3MjIwOTAxODAwMjo6MDo6&url=%2FCerveja-Heineken-Pilsen-LATA-350%2Fdp%2FB0CMXW6ZYB%2Fref%3Dsr_1_1_sspa%3Fdib%3DeyJ2IjoiMSJ9.a3PcRuRLe393pB7OIiSy4zTm685RIeJ1MPVq9WyJBcSGCF_SxjGdnX7aFQfXYAVuPKbtESklVZcgYh2rv1BO_uk7xMGb_3yFkHJFsYRkKItzNdpxsGG_hDGoHha-T7k9c5hGuJ9KIZ8axIxkyynAzzJq18VeFOuXF-Qj32EuO8xffRfGulXCqVoafP9T7mWalYDMJhXt5uONb6zIPto6dIGcgsvbZ1v4S_gRrIpfO-qsW17QXzAXqK2T00sO6Zw0zCnJfvdvcCN9lQ4MJirPYsjhzSeATgTZ5CLXqONVRxc.OemBJfT1CxSJPWV_qWt_oj-kcxZVXctyAAvNFTq6XpY%26dib_tag%3Dse%26keywords%3DCerveja%2BHeineken%2B350ml%26qid%3D1778881840%26s%3Dgrocery%26sr%3D1-1-spons%26sp_csd%3Dd2lkZ2V0TmFtZT1zcF9hdGY%26psc%3D1"
+    },
+    {
+        "data_extracao": "2026-05-15T18:52:08.978682",
+        "site": "Amazon",
+        "categoria": "cerveja",
+        "marca": "Spaten",
+        "termo_buscado": "Cerveja Spaten Lata 350ml",
+        "titulo_anuncio": "Pack Cerveja Spaten, Puro Malte, 350ml, Lata - 12 Unidades",
+        "quantidade_embalagem": 12,
+        "preco_total_anuncio": 69.36,
+        "preco_unitario": 5.78,
+        "link": "https://www.amazon.com.br/Pack-Cerveja-Spaten-Malte-350ml/dp/B0CN9NGTXK/ref=sr_1_4?dib=eyJ2IjoiMSJ9.2H54ArIn9F0DKsCKbNWMtJ6YKAD2_ym-xJ33f1gh1gfzLlLEpMpovIOFOzSD0EMhN9G6qmJ8hyRthnA-3WmYlAgIPHe-Z5sLVc5qsLBUaRnX_uD6rrTaVQwqtuCl8pG-X4MOBmGReS-yMPDsQgyfxym02eCd_njZb5glc9sKGXdieVtjYgvx3QzwQ9T-ikTgLkPY24e4ZcyAKdm3SBGupX1CYQ9SijcYO0VSQTpjzC_gcZHV00XpoDYQg1fqhUJN0a7K-tr-nGZfmspavBSJ6us4kAwDVCC9ckiNsAl-8_s.86n38aX98vrwrVbKv4OqysA4j3KdTjQ45SiFJGxvvjU&dib_tag=se&keywords=Cerveja+Spaten+350ml&qid=1778881850&s=grocery&sr=1-4"
+    },
+    {
+        "data_extracao": "2026-05-15T18:52:18.380179",
+        "site": "Amazon",
+        "categoria": "whisky",
+        "marca": "Johnnie Walker",
+        "termo_buscado": "Whisky Johnnie Walker Red Label 1L",
+        "titulo_anuncio": "Whisky Johnnie Walker Red Label 1L",
+        "quantidade_embalagem": 1,
+        "preco_total_anuncio": 88.99,
+        "preco_unitario": 88.99,
+        "link": "https://www.amazon.com.br/Whisky-Johnnie-Walker-Label-Blended/dp/B004Q47N5G/ref=sr_1_4?dib=eyJ2IjoiMSJ9.6_W5nvO8nbL1-obijYzgd4X9sGjwjKD8kpiurG_IqMFsHivqqldtJMsCwDIq_j_FkCvIO2m5zu8B2cke7lE7RqKQ3F8ansnihEg2hekmSHQl1Gh6ZxR10SbFpzEIZnIONK3nrBEsKIEs95M1cqtVfNHUvQ8ShtO9ecJDKUQxJeklM7DttJZJ1UYc0zvJ7UJeZ6zkYDe7_YDSv81-Hq8m6IP3v3DX9YkbM9fa9dx_e1DsI1ddylvKzVat8XEzBSS5ZgKvkn4u7YpPlW6NxYC5D0l9tl0dI4zipmub-6pdxTc.5SRruDSX8RBCPVv2FPwxMlsiO8Kd2S2JktDttBoXXk0&dib_tag=se&keywords=Whisky+Johnnie+Walker+Red+Label+1L&qid=1778881859&s=grocery&sr=1-4"
+    },
+    {
+        "data_extracao": "2026-05-15T18:52:27.154660",
+        "site": "Amazon",
+        "categoria": "energetico",
+        "marca": "Red Bull",
+        "termo_buscado": "Energetico Red Bull Energy Drink Lata 250ml",
+        "titulo_anuncio": "Pack de 24 Latas Red Bull Energético, Energy Drink, 250ml",
+        "quantidade_embalagem": 24,
+        "preco_total_anuncio": 188.76,
+        "preco_unitario": 7.86,
+        "link": "https://www.amazon.com.br/Energ%C3%A9tico-Red-Bull-Energy-Drink/dp/B01G7F3UGC/ref=sr_1_2?dib=eyJ2IjoiMSJ9.rGkP3lAKXmTGsUFRTvyS6nd9TAAapX_BurKBrjuhp1GNj9Xvbxg-tA2Ib9nzNZ5_AYOOBlbAA1hw8ntyGGjG84SYooswUgiLffjT2nmQb2XQPLeG8vGaI-5nt3XI1jrJCDfrX3Fto9xXMdmSDgi8Y9maybkiXPpSWjO1IUlWfzm5cF5Jrx9cAYN2gm4bksRIpnl4_m81JRip7avDKrGLq_mAMoMSY3r9AKGhoe55QS2-1mQ1M0Z99NQxjeWlJMrv3wV-2iYcLhxiPZzciqn2-UvV7jJCCv0Jk32EXaRtz4w.imHftFq7ut8AhGawGYsnpElfldq-WlFPUn92zG6JYt8&dib_tag=se&keywords=Energetico+Red+Bull+Energy+Drink+250ml&qid=1778881868&s=grocery&sr=1-2"
+    },
+    {
+        "data_extracao": "2026-05-15T18:52:36.411814",
+        "site": "Amazon",
+        "categoria": "refrigerante",
+        "marca": "Coca-Cola",
+        "termo_buscado": "Refrigerante Coca-Cola Pet 2L",
+        "titulo_anuncio": "Coca-Cola Original 2L",
+        "quantidade_embalagem": 1,
+        "preco_total_anuncio": 11.99,
+        "preco_unitario": 11.99,
+        "link": "https://www.amazon.com.br/Coca-Cola-Original-2l-Unidade/dp/B07SYGDBZD/ref=sr_1_1_br_f3_0g_amnow?dib=eyJ2IjoiMSJ9.ongjZ2RRtL-zzRpEodC58T6XYPVp1np5AbK1b-5PP1X4Ik1_Q61mfziQ8Ru8zXdDbvhacJoKZnwXTGjMon1CpYJ2eGU5yAm3zE19FZ9SwhtHJ_-yeha3qoX22BFA5iHY3lEh4rOspmR1YvCHMo_Fr-TSSdCk0lrTDgGFxsH6KyIFAfS3dOIlTLv-zw7itbSh5_-4e_VSrN56PYIN9BpINArAKLAn_ae3oLgJZK4fUae3XQHyXeVcFv80OY3prKg3A7l02HHMEPrhjWqnMGY8Iw8CQZ50Lb9XEr3ys8kElGI.tD8ctfqMjqWqBzWglQXOv4QcwQY--vixgqnpq_GmhtA&dib_tag=se&keywords=Refrigerante+Coca-Cola+2L&qid=1778881877&s=grocery&sr=1-1"
+    }
+]

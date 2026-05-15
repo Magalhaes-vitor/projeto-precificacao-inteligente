@@ -1,0 +1,50 @@
+[
+    {
+        "data_extracao": "2026-05-15T18:57:48.601939",
+        "site": "ZeDelivery",
+        "categoria": "cerveja",
+        "marca": "Heineken",
+        "termo_buscado": "Heineken 350ml",
+        "titulo_anuncio": "Heineken 350ml",
+        "quantidade_embalagem": 1,
+        "preco_total_anuncio": 6.09,
+        "preco_unitario": 6.09,
+        "link": "Extraido via Menu de Busca"
+    },
+    {
+        "data_extracao": "2026-05-15T18:57:57.398127",
+        "site": "ZeDelivery",
+        "categoria": "cerveja",
+        "marca": "Spaten",
+        "termo_buscado": "Spaten 350ml",
+        "titulo_anuncio": "Spaten 350ml",
+        "quantidade_embalagem": 1,
+        "preco_total_anuncio": 4.19,
+        "preco_unitario": 4.19,
+        "link": "Extraido via Menu de Busca"
+    },
+    {
+        "data_extracao": "2026-05-15T18:58:08.174039",
+        "site": "ZeDelivery",
+        "categoria": "whisky",
+        "marca": "Johnnie Walker",
+        "termo_buscado": "Johnnie Walker Red Label 1L",
+        "titulo_anuncio": "Whisky Johnnie Walker Red Label 1L",
+        "quantidade_embalagem": 1,
+        "preco_total_anuncio": 110.19,
+        "preco_unitario": 110.19,
+        "link": "Extraido via Menu de Busca"
+    },
+    {
+        "data_extracao": "2026-05-15T18:58:19.077824",
+        "site": "ZeDelivery",
+        "categoria": "energetico",
+        "marca": "Red Bull",
+        "termo_buscado": "Red Bull Energy Drink 250ml",
+        "titulo_anuncio": "Energético Red Bull Energy Drink 250ml",
+        "quantidade_embalagem": 1,
+        "preco_total_anuncio": 10.99,
+        "preco_unitario": 10.99,
+        "link": "Extraido via Menu de Busca"
+    }
+]
