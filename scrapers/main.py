@@ -42,8 +42,6 @@ def main():
     for nome, scraper_class in scrapers_disponiveis:
         logger.info(f"\n{'='*40}\n[INFO] Iniciando crawler: {nome}\n{'='*40}")
         try:
-            # Isolamento de Falhas (Try/Except por Scraper)
-            # Se um site mudar o HTML ou der block, os outros 5 continuam rodando!
             scraper_instance = scraper_class()
             scraper_instance.extrair_dados()
             
@@ -54,7 +52,6 @@ def main():
             logger.error(f"[ERRO] Falha critica irrecuperavel no scraper {nome}: {e}")
             resumo_execucao.append(f"{nome}: FALHOU")
         finally:
-            # Sleep de segurança para libertar a memória RAM da máquina antes de abrir o próximo Edge
             time.sleep(3)
 
     end_time = time.time()
@@ -66,11 +63,15 @@ def main():
     logger.info(f"[INFO] Pipeline da Camada Bronze concluido em {duracao_minutos} minutos.")
     
     # ---------------------------------------------------------
-    # O PROXIMO PASSO DO PIPELINE ENTRA AQUI:
-    # logger.info("[INFO] Acionando a Camada Silver (Transformacao de Dados)...")
-    # from transformacao_silver import processar_camada_silver
-    # processar_camada_silver()
+    # ACIONAMENTO AUTOMATICO DA CAMADA SILVER
     # ---------------------------------------------------------
+    logger.info("\n[INFO] Acionando a Camada Silver (Transformacao de Dados)...")
+    try:
+        from transformacao_silver import processar_camada_silver
+        processar_camada_silver()
+        logger.info("[SUCESSO] Pipeline completo executado com exito.")
+    except Exception as e:
+        logger.error(f"[ERRO] Falha ao executar a Camada Silver: {e}")
 
 if __name__ == "__main__":
     main()
