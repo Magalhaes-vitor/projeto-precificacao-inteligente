@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import time
 import logging
@@ -38,9 +39,40 @@ def _silenced_del(self):
 
 uc.Chrome.__del__ = _silenced_del
 
+def obter_versao_chrome_global(logger_instancia):
+    """Descobre a versão principal do Chrome uma única vez para todo o pipeline."""
+    logger_instancia.info("[INFO] Verificando versao do Google Chrome no ambiente...")
+    try:
+        if platform.system() == "Windows":
+            cmd = 'powershell -command "(Get-ItemProperty -Path Registry::HKEY_CURRENT_USER\\Software\\Google\\Chrome\\BLBeacon).version"'
+            process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            output, _ = process.communicate()
+            versao_completa = output.decode('utf-8').strip()
+        else:
+            process = subprocess.Popen(['google-chrome', '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            output, _ = process.communicate()
+            versao_completa = output.decode('utf-8').strip()
+        
+        match = re.search(r'\d+', versao_completa)
+        if match:
+            versao = int(match.group(0))
+            logger_instancia.info(f"[INFO] Versao do Chrome detectada com sucesso: v{versao}")
+            return versao
+            
+    except Exception as e:
+        logger_instancia.warning(f"[AVISO] Erro ao detectar versao do Chrome: {e}")
+    
+    logger_instancia.warning("[AVISO] Nao foi possivel detectar a versao do Chrome. O sistema utilizara o fallback padrao.")
+    return None
+
 def main():
     logger.info("[INFO] Iniciando Pipeline de Extracao (Camada Bronze)...")
     start_time = time.time()
+
+    # ---------------------------------------------------------
+    # DETECÇÃO GLOBAL DE VERSÃO
+    # ---------------------------------------------------------
+    versao_chrome_global = obter_versao_chrome_global(logger)
 
     # Dicionário com as classes de scrapers disponíveis
     # ==============================================================================
@@ -81,7 +113,8 @@ def main():
         logger.info(f"\n{'='*40}\n[INFO] Iniciando crawler: {nome}\n{'='*40}")
         try:
             limpar_navegador()
-            scraper_instance = scraper_class()
+            # INJEÇÃO DA VERSÃO: O scraper agora recebe a versão calculada previamente
+            scraper_instance = scraper_class(versao_chrome=versao_chrome_global)
             scraper_instance.extrair_dados()
             
             logger.info(f"[SUCESSO] Extracao de {nome} finalizada.")
@@ -111,6 +144,15 @@ def main():
         logger.info("[SUCESSO] Pipeline completo executado com exito.")
     except Exception as e:
         logger.error(f"[ERRO] Falha ao executar a Camada Silver: {e}")
+    finally:
+        # ==========================================================
+        # ROTINA DE ENCERRAMENTO FORÇADO PARA A AWS FARGATE
+        # ==========================================================
+        logger.info("[INFO] Executando varredura final de processos...")
+        limpar_navegador()
+        
+        logger.info("[INFO] Sinalizando encerramento imediato (Exit 0) para o Container...")
+        sys.exit(0) # Força a tarefa da AWS a desligar imediatamente
 
 if __name__ == "__main__":
     main()

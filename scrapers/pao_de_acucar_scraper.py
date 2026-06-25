@@ -15,37 +15,10 @@ from selenium.webdriver.common.by import By
 from base_scraper import BaseScraper
 
 class PaoDeAcucarScraper(BaseScraper):
-    def __init__(self):
-        super().__init__('PaoDeAcucar')
+    def __init__(self, versao_chrome=None):
+        super().__init__('PaoDeAcucar', versao_chrome)
         self.driver = self._configurar_driver()
 
-    def _obter_versao_chrome(self):
-        """Descobre a versão principal do Chrome (Funciona em Windows e Linux)."""
-        try:
-            if platform.system() == "Windows":
-                # Comando para consultar o registo do Windows
-                cmd = 'powershell -command "(Get-ItemProperty -Path Registry::HKEY_CURRENT_USER\\Software\\Google\\Chrome\\BLBeacon).version"'
-                process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                output, _ = process.communicate()
-                versao_completa = output.decode('utf-8').strip()
-            else:
-                # Comando para Linux (AWS Fargate)
-                process = subprocess.Popen(['google-chrome', '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                output, _ = process.communicate()
-                versao_completa = output.decode('utf-8').strip()
-            
-            # Extrai apenas os primeiros números
-            match = re.search(r'\d+', versao_completa)
-            if match:
-                versao = int(match.group(0))
-                self.logger.info(f"Versão do Chrome detectada dinamicamente: {versao}")
-                return versao
-                
-        except Exception as e:
-            self.logger.warning(f"Erro ao detectar versão do Chrome: {e}")
-        
-        self.logger.warning("Não foi possível detectar a versão do Chrome. Usando padrão.")
-        return None
 
     def _configurar_driver(self):
         """Configura o Chrome Indetetável para bypass de proteção sem usar Xvfb."""
@@ -67,7 +40,7 @@ class PaoDeAcucarScraper(BaseScraper):
         self.logger.info("Inicializando o motor do Chrome (Undetected)...")
         
         # Arranca o driver indetetável
-        versao_dinamica = self._obter_versao_chrome()
+        versao_dinamica = self.versao_chrome
         
         if versao_dinamica:
             driver = uc.Chrome(options=options, headless=True, version_main=versao_dinamica)
