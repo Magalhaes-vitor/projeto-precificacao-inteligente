@@ -2,7 +2,10 @@ import os
 import sys
 import time
 import logging
+import platform
+import subprocess
 from datetime import datetime
+import undetected_chromedriver as uc
 
 # Adiciona o diretório atual ao path para garantir que os módulos sejam encontrados
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -15,33 +18,69 @@ from pao_de_acucar_scraper import PaoDeAcucarScraper
 from tenda_atacado_scraper import TendaAtacadoScraper
 from ze_delivery_scraper import ZeDeliveryScraper
 
-# Configuração de Logging Centralizado (Padrão Sênior)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - ORQUESTRADOR - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logger = logging.getLogger('Orquestrador')
+if __name__ == "__main__":
+    # Configuração de Logging Centralizado
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - ORQUESTRADOR - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logger = logging.getLogger('Orquestrador')
+
+# SILENCIADOR DO UNDETECTED CHROMEDRIVER (Evita o WinError 6 no final do log)
+_original_del = uc.Chrome.__del__
+
+def _silenced_del(self):
+    try:
+        _original_del(self)
+    except Exception:
+        pass # Ignora silenciosamente qualquer erro de processo fantasma
+
+uc.Chrome.__del__ = _silenced_del
 
 def main():
     logger.info("[INFO] Iniciando Pipeline de Extracao (Camada Bronze)...")
     start_time = time.time()
 
     # Dicionário com as classes de scrapers disponíveis
+    # ==============================================================================
+    # AVISO: MERCADO LIVRE EM QUARENTENA NA AWS
+    # O Mercado Livre possui proteção severa (Akamai) contra IPs de Data Centers (AWS).
+    # Para ativar este scraper na nuvem, é OBRIGATÓRIO o uso de um Proxy Residencial.
+    # Consulte o documentacao_scrapers.md e o cabeçalho de mercado_livre_scraper.py para instruções.
+    # ==============================================================================
+
     scrapers_disponiveis = [
         ("Amazon", AmazonScraper),
         ("Atacadao", AtacadaoScraper),
-        ("Mercado Livre", MercadoLivreScraper),
         ("Pao de Acucar", PaoDeAcucarScraper),
         ("Tenda Atacado", TendaAtacadoScraper),
-        ("Ze Delivery", ZeDeliveryScraper)
+        ("Ze Delivery", ZeDeliveryScraper),
+        #("Mercado Livre", MercadoLivreScraper)
     ]
 
     resumo_execucao = []
 
+    def limpar_navegador():
+        '''Mata qualquer processo fantasma do Chrome que possa estar a travar as portas.'''
+        try:
+            if platform.system() == "Windows":
+                # Comando para Windows (silencioso para não poluir o terminal)
+                subprocess.call("taskkill /F /IM chrome.exe /T >nul 2>&1", shell=True)
+                subprocess.call("taskkill /F /IM chromedriver.exe /T >nul 2>&1", shell=True)
+            else:
+                # Comando para Linux/AWS
+                subprocess.call("pkill -9 -f chrome", shell=True)
+                subprocess.call("pkill -9 -f chromedriver", shell=True)
+            time.sleep(2) # Dá tempo ao SO para limpar a memória
+        except Exception:
+            pass
+
+        
     for nome, scraper_class in scrapers_disponiveis:
         logger.info(f"\n{'='*40}\n[INFO] Iniciando crawler: {nome}\n{'='*40}")
         try:
+            limpar_navegador()
             scraper_instance = scraper_class()
             scraper_instance.extrair_dados()
             

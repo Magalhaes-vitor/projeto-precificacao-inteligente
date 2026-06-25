@@ -1,76 +1,91 @@
-# Projeto de Precificacao Inteligente - Documentacao Arquitetural e Tecnica
+# Projeto de Precificação Inteligente - Documentação Arquitetural e Técnica
 
-## 1. Visao Geral do Projeto
+## 1. Visão Geral do Projeto
 
-Este projeto consiste em um ecossistema de Engenharia de Dados voltado para a captura, transformacao e analise de precos de produtos em diversas plataformas de e-commerce e varejo. O objetivo principal e extrair inteligencia competitiva de precos, permitindo a comparacao de valores unitarios de itens especificos em multiplos concorrentes.
+Este projeto consiste em um ecossistema de Engenharia de Dados voltado para a captura, transformação e análise de preços de produtos em diversas plataformas de e-commerce e varejo. O objetivo principal é extrair inteligência competitiva de preços, permitindo a comparação precisa de valores unitários de itens específicos em múltiplos concorrentes.
 
-O fluxo de dados foi desenhado para ser resiliente, altamente validado e preparado para execucao em ambientes de Cloud Computing (como AWS Fargate, S3 e Athena).
+O fluxo de dados foi desenhado para ser resiliente, altamente validado e preparado para execução automatizada em ambientes de Cloud Computing (como AWS Fargate, Amazon S3 e, futuramente, Amazon Athena).
 
-## 2. Estrutura do Repositorio
+## 2. Estrutura do Repositório
 
-A arquitetura do repositorio esta organizada da seguinte forma:
+A arquitetura do repositório está organizada da seguinte forma:
 
-- **scrapers/**: Contem todos os scripts de extracao (Camada Bronze). Inclui a classe base e os scrapers especificos para cada dominio.
-- **data_samples/**: Armazena os dados brutos (Raw Data) extraidos em formato JSON. (Camada Bronze)
-- **aws/**: Armazenamento de scripts para infraestrutura de nuvem, como queries do Amazon Athena e possiveis definicoes do AWS Glue.
-- **bi/**: Arquivos relacionados a visualizacao de dados, como dashboards no Power BI.
+* **scrapers/**: Diretório contendo os scripts de extração (Camada Bronze). Inclui a classe base, os scrapers específicos para cada domínio e o orquestrador principal.
+* **data_samples/**: Armazenamento efêmero dos dados brutos (Raw Data) extraídos em formato JSON durante a execução da Camada Bronze.
+* **transformacao_silver.py**: Script responsável pelo pipeline ETL, processando os dados brutos, convertendo para formatos analíticos e enviando para a nuvem.
+* **config_produtos.json**: Arquivo de configuração que atua como base de conhecimento, contendo a matriz de produtos, marcas, categorias e termos de busca.
+* **aws/**: Armazenamento de scripts para infraestrutura de nuvem, como queries do Amazon Athena e possíveis definições do AWS Glue.
+* **bi/**: Arquivos relacionados à visualização de dados, como dashboards no Power BI.
 
-## 3. Arquitetura de Extracao (Camada Bronze)
+## 3. Arquitetura de Extração (Camada Bronze)
 
-A camada de extracao foi construida utilizando Python, Selenium e BeautifulSoup4. Ela e orquestrada por um script central (`main.py`) e baseia-se no padrao de projeto Orientacao a Objetos, onde cada scraper herda comportamentos de `BaseScraper`.
+A camada de extração foi construída em Python utilizando `undetected_chromedriver` (para evasão de defesas antibot e Web Application Firewalls) e `BeautifulSoup4` (para parseamento de alta performance). A arquitetura baseia-se no padrão de projeto Orientação a Objetos.
 
 ### 3.1. BaseScraper (`base_scraper.py`)
-A classe fundacional que garante padronizacao em todos os scrapers. Funcoes principais:
-- **Gestao de Logs**: Centraliza a emissao de logs operacionais em formato padronizado (INFO, AVISO, ERRO, SUCESSO).
-- **Leitura de Configuracoes**: Carrega dinamicamente a matriz de produtos (`config_produtos.json`).
-- **Normalizacao Matematica (`normalizar_preco`)**: Algoritmo central baseado em Expressoes Regulares (Regex) que decodifica kits e pacotes (ex: "Pack com 6") para calcular o preco unitario base.
-- **Persistencia**: Padroniza a gravacao dos outputs JSON com timestamps.
+A classe fundacional que garante padronização comportamental em todos os scrapers. Responsabilidades principais:
+* **Gestão de Logs**: Centraliza a emissão de logs operacionais em formato padronizado de terminal (INFO, AVISO, ERRO).
+* **Leitura de Configurações**: Carrega dinamicamente a matriz de produtos a buscar (`config_produtos.json`).
+* **Normalização Matemática (`normalizar_preco`)**: Motor semântico baseado em Expressões Regulares (Regex) que decodifica kits e fardos (exemplo: "Pack com 12") para extrair a quantidade da embalagem e calcular o preço unitário real.
+* **Persistência**: Padroniza a gravação local dos outputs temporários em arquivos JSON com marcadores de tempo (timestamps).
 
 ### 3.2. Orquestrador Central (`main.py`)
-O `main.py` funciona como o controlador de execucao. 
-- **Isolamento de Falhas**: Instancia e executa cada scraper sequencialmente dentro de blocos `try/except`. Uma falha critica em um dominio nao afeta os demais.
-- **Gestao de Recursos**: Aplica pausas estruturais (`time.sleep`) para desalocacao de processos de memoria do navegador entre execucoes.
+Funciona como o controlador principal de execução do pipeline.
+* **Isolamento de Falhas**: Instancia e executa cada scraper sequencialmente dentro de blocos de tratamento de exceções (`try/except`). Falhas críticas em um domínio não interrompem o fluxo geral.
+* **Gestão de Recursos (Memory Cleanup)**: Aplica rotinas de limpeza forçada (`limpar_navegador`) utilizando chamadas de sistema operativo (subprocess) para encerrar processos zumbis do Chrome e ChromeDriver, prevenindo vazamentos de memória e erros de portas travadas (como WinError 6).
+* **Acionamento em Cascata**: Ao finalizar a Camada Bronze, aciona automaticamente o processamento da Camada Silver.
 
-## 4. Scrapers e Suas Resiliencias
+## 4. Scrapers e Suas Estratégias de Resiliência
 
-Cada scraper possui estrategias dedicadas para lidar com os bloqueios e fluxos de navegacao de sua respectiva plataforma.
+Cada scraper foi projetado com estratégias dedicadas para contornar bloqueios específicos e peculiaridades de renderização de sua respectiva plataforma.
 
 ### 4.1. Amazon (`amazon_scraper.py`)
-- **Evasao de WAF**: Modificacao de assinaturas de navegacao (`AutomationControlled`) e rotina de backoff mediante deteccao de desafio CAPTCHA.
-- **DOM Dinamico**: Injeccao de JavaScript para forcamento de scroll e acionamento de carregamento tardio (Lazy Loading).
-- **Filtro de Buy Box**: Capacidade de extrair precos tanto da listagem principal quanto de vendedores parceiros (`secondary-offer-recipe`).
+* **Evasão Avançada**: Utilização do Chrome indetectável para mascarar assinaturas de automação frente aos sistemas da plataforma e rotina de backoff mediante detecção de desafio CAPTCHA.
+* **Manipulação de DOM Dinâmico**: Injeção de JavaScript para forçamento de scroll e acionamento de carregamento tardio (Lazy Loading).
+* **Filtro de Buy Box**: Capacidade de extrair preços tanto da listagem principal quanto de vendedores parceiros (`secondary-offer-recipe`).
 
-### 4.2. Atacadao (`atacadao_scraper.py`)
-- **Gestao de Estado**: Definicao programatica de localizacao via CEP, mimetizando a interacao de um usuario no front-end React.
-- **Interceptacao de Autocomplete**: Leitura estruturada dos resultados retornados pelo dropdown de busca, garantindo performance e prevencao contra carregamentos completos de pagina.
-- **Tratamento de Modais**: Remocao ativa de overlays promocionais que interceptam cliques no DOM.
+### 4.2. Atacadão (`atacadao_scraper.py`)
+* **Gestão de Estado e Localização**: Definição programática de localização inserindo o CEP padrão, mimetizando a interação de um usuário real no front-end React para liberação do acesso ao catálogo.
+* **Interceptação de Autocomplete**: Navegação focada no menu dropdown de busca, otimizando a performance da rede e prevenindo o carregamento custoso de páginas completas.
+* **Tratamento de Modais**: Remoção ativa de overlays promocionais que interceptam cliques no DOM.
 
 ### 4.3. Mercado Livre (`mercado_livre_scraper.py`)
-- **Estrategia Hibrida**: Utilizacao de esperas explicitas (`WebDriverWait`) combinadas com parseamento passivo via BeautifulSoup para lidar com vitrines geradas por renderizacao mista (Server-Side / Client-Side).
-- **Filtro Estrito de Marketplace**: Logica agressiva de exclusao de itens concorrentes ou falsos positivos inseridos nativamente pela engine de anuncios patrocinados da plataforma.
+* **Status Atual**: Inativo no pipeline principal da AWS (comentado no orquestrador `main.py`) e mantido como recurso em quarentena documentada.
+* **Estratégia Anti-WAF (Akamai)**: O sistema do Mercado Livre aplica um hard block em tráfego oriundo de datacenters (AWS). O script contorna este bloqueio implementando injeção dinâmica de Proxy Residencial ou Comercial (via variável de ambiente `PROXY_MERCADO_LIVRE`) para mascarar a origem da requisição.
+* **Validação Estrita de Volumetria**: O algoritmo extrai a litragem/volume alvo do termo de busca original (ex: "2L" ou "350ml") e valida rigorosamente contra o título do anúncio, descartando itens fora do escopo.
+* **Ordenação por Preço Unitário**: Após os filtros de relevância e marca, o motor organiza os anúncios aprovados baseando-se estritamente no menor preço unitário real calculado, evitando a captura de itens avulsos irrelevantes ou falsos positivos de vitrine.
 
-### 4.4. Pao de Acucar (`pao_de_acucar_scraper.py`)
-- **Resolucao de WAF PoW (Altcha)**: O sistema de protecao utiliza um sistema de Proof-of-Work. O script detecta a presenca do componente Shadow DOM `<altcha-widget>`, injeta a interacao e aplica uma rotina de espera em polling para aguardar a solucao criptografica do desafio.
-- **Filtro de Disponibilidade**: Ignora elementos categorizados como `StockOutLabel`, prevenindo poluicao dos dados com precos base irreais.
+### 4.4. Pão de Açúcar (`pao_de_acucar_scraper.py`)
+* **Resolução de WAF PoW (Altcha)**: O sistema de proteção utiliza um sistema de Proof-of-Work. O script detecta a presença do componente Shadow DOM `<altcha-widget>`, injeta a interação e aplica uma rotina de espera em polling para aguardar a solução criptográfica do desafio.
+* **Navegação Silenciosa e Filtro de Relevância**: Utiliza o motor indetectável para aguardar o carregamento assíncrono dos componentes de vitrine. Processa a árvore HTML isolando a marca e a string de busca estrita para descartar sugestões imprecisas ou anúncios patrocinados.
+* **Filtro de Disponibilidade**: Ignora elementos categorizados como `StockOutLabel`, prevenindo poluição dos dados com preços base irreais.
 
 ### 4.5. Tenda Atacado (`tenda_atacado_scraper.py`)
-- **Controle VTEX**: Desativacao forcada de classes do `<body>` (`modal-open`) que bloqueiam manipulacao do DOM e fluxo de scroll de pagina.
-- **Sincronia Rigorosa de Lazy Loading**: Pausas cronometradas intercaladas com injecoes de `window.scrollTo` estrategicas para disparar APIs de paginacao da VTEX.
-- **Normalizacao de Textos Sujos**: Limpeza pre-parser para caracteres inquebraveis (` `) comuns nesta plataforma.
+* **Controle VTEX**: Desativação forçada de classes do `<body>` (`modal-open`) que bloqueiam manipulação do DOM e fluxo de scroll de página.
+* **Sincronia Rigorosa de Lazy Loading**: Pausas cronometradas intercaladas com injeções de `window.scrollTo` estratégicas para disparar APIs de paginação da arquitetura VTEX.
+* **Tratamento de Dados e Textos**: Limpeza pré-parser para caracteres inquebráveis comuns nesta plataforma e consolidação do preço base localizando as classes CSS específicas de fracionamento de valores (inteiros e centavos).
 
-### 4.6. Ze Delivery (`ze_delivery_scraper.py`)
-- **Interacao com Age Gate**: Resolucao mandatoria de bloqueios de idades.
-- **Navegacao Georreferenciada**: Interacao baseada em deslocamento de eixos (`ActionChains`) para superar a validacao do Google Places na definicao de domicilio.
-- **Extracao Dinamica de Precos Minimos**: Em casos de dualidade de valores (descontos aplicados e preco cortado), isola e capta apenas o valor comercial de face (`min()`) apos descartar badges como `-12%`.
+### 4.6. Zé Delivery (`ze_delivery_scraper.py`)
+* **Navegação Georreferenciada e Age Gate**: Resolução mandatória de bloqueios de maioridade e interação baseada em deslocamento de eixos (`ActionChains`) para contornar a validação do Google Places na definição de domicílio.
+* **Extração Dinâmica em Menus**: Processamento veloz através de modais de sugestão de busca, localizando ativamente elementos estruturais para extrair o valor comercial correto.
+* **Extração Dinâmica de Preços Mínimos**: Em casos de dualidade de valores (descontos aplicados e preço cortado), isola e capta apenas o valor comercial de face (`min()`) após descartar componentes como descontos percentuais.
 
-## 5. Algoritmo de Consistencia de Dados (Motor Semantico)
+## 5. Pipeline ETL (Camada Silver)
 
-Presente em multiplos scrapers, a arquitetura garante validacao e purificacao da extracao antes da criacao do JSON, utilizando as seguintes operacoes de checagem cruzada:
-1.  **Filtro Negativo de Sabores/Variantes**: Recusa sumaria de strings contendo expressoes colidentes pre-cadastradas (ex: Limao, Cafe, Diet, Zero).
-2.  **Validacao Equivalente de Embalagens**: Discriminacao binaria entre embalagens metalicas (Lata) e plasticas (Pet).
-3.  **Comparacao Matematica de Medidas**: Conversao semantica universal (ex: 2L para 2000ml, 1KG para 1000g) cruzando com a String base de pesquisa para evitar captacao de versoes minimas do produto ou amostras gratis.
-4.  **Bypass de Excecao de Padrao**: Hardcode validatorio para garantir a aderencia de produtos mal formatados nas lojas (ex: Coca-Cola 2L Original) garantindo alta capilaridade de matches corretos.
+Após a extração bruta pela Camada Bronze, os dados passam por um processo de refinamento e consolidação no script `transformacao_silver.py`.
+* **Deduplicação e Chave Surrogate**: Geração de um hash MD5 único para cada registro (combinando site, marca, termo de busca e data), impedindo a ingestão de dados duplicados no repositório final.
+* **Conversão e Tipagem Forte**: Transformação dos dados em DataFrame do Pandas e exportação para formatos analíticos de alta compactação (Parquet via engine PyArrow) e leitura tabular (CSV).
+* **Sincronização AWS S3**: Upload seguro e autenticado dos artefatos processados para o Amazon S3 (Data Lake) utilizando a biblioteca `boto3`.
+* **Garbage Collection Condicional**: Rotina de limpeza que remove automaticamente os arquivos JSON temporários da pasta local após o sucesso na transformação e envio para a nuvem, mantendo o ambiente do contêiner leve e otimizado.
 
-## 6. Padronizacao e Manutenibilidade
+## 6. Algoritmo de Consistência de Dados (Motor Semântico)
 
-Todos os codigos e outputs de loggin seguem boas praticas para facil depuracao. Arquivos JSON resultantes representam o fim do estagio de Extractions, devendo ser posteriormente consolidados e tratados via ferramentas da Camada Silver.
+A arquitetura estabelece purificação estrita de dados antes do salvamento, garantindo comparações homogêneas:
+1. **Filtro Negativo de Variantes**: Recusa sumária de strings contendo expressões colidentes (ex: Diet, Zero, Light) caso não tenham sido explicitamente solicitadas na busca original.
+2. **Validação Equivalentede Embalagens**: Discriminação binária entre embalagens metálicas (Lata) e plásticas (Pet).
+3. **Validação de Identidade Nominal**: Verificação da presença obrigatória da marca e categoria limpa no título do anúncio para evitar captura de produtos paralelos, acessórios ou brindes.
+4. **Comparação Matemática de Medidas**: Conversão semântica universal (ex: 2L para 2000ml, 1KG para 1000g) cruzando com a string base de pesquisa para isolar medidas unitárias, calculando o divisor exato de embalagens múltiplas.
+5. **Bypass de Exceção de Padrão**: Lógica validatória para garantir a aderência de produtos mal formatados nas lojas (ex: Coca-Cola 2L Original), mantendo alta capilaridade de matches corretos.
+
+## 7. Padronização e Manutenibilidade
+
+Todos os componentes lógicos e saídas de terminal obedecem a práticas consolidadas de engenharia de software. A separação estrita de responsabilidades entre Camada Bronze (Scraping e Parsing), Camada Silver (ETL) e integração nativa com recursos de infraestrutura AWS (S3 e Variáveis de Ambiente) permite que o ecossistema seja modular, de fácil depuração e altamente escalável para integração de novos canais de mercado.

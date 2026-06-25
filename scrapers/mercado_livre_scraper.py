@@ -1,230 +1,228 @@
+"""
+=========================================================================================
+MERCADO LIVRE SCRAPER - DOCUMENTAÇÃO DE INFRAESTRUTURA
+=========================================================================================
+Este scraper utiliza o Undetected Chromedriver com spoofing de User-Agent.
+
+STATUS: 
+Inativo no pipeline principal da AWS (Comentado no main.py).
+
+MOTIVO:
+O Mercado Livre utiliza o WAF Akamai, que bloqueia instantaneamente tráfego oriundo de
+IPs de Data Centers conhecidos (como a AWS Fargate), redirecionando para uma página 
+de login obrigatória (Hard Block).
+
+COMO EXECUTAR LOCALMENTE:
+Pode ser executado localmente sem restrições. Como o IP residencial do desenvolvedor
+tem boa reputação, o WAF não bloqueia a requisição.
+Basta rodar: `python scrapers/mercado_livre_scraper.py`
+
+COMO EXECUTAR NA AWS (PRODUÇÃO):
+Para que este scraper funcione na AWS, é obrigatório macronar o IP do contêiner usando
+um Proxy Residencial ou Comercial (ex: Webshare, Proxy6, BrightData).
+1. Obtenha as credenciais do proxy.
+2. Defina a variável de ambiente `PROXY_MERCADO_LIVRE` no seu ambiente AWS.
+   Formato: http://usuario:senha@ip:porta
+=========================================================================================
+"""
+
+import os
 import time
 import re
 from datetime import datetime
-from selenium import webdriver
-from selenium.webdriver.edge.options import Options
+from bs4 import BeautifulSoup
+import undetected_chromedriver as uc
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from bs4 import BeautifulSoup
-
 from base_scraper import BaseScraper
 
+_original_del = uc.Chrome.__del__
+
+def _silenced_del(self):
+    try:
+        _original_del(self)
+    except Exception:
+        pass
+
+uc.Chrome.__del__ = _silenced_del
+
 class MercadoLivreScraper(BaseScraper):
+    """
+    Scraper especializado no Mercado Livre via Automação Web.
+    Varre a página de buscas pública de forma invisível e extrai a oferta mais barata.
+    Utiliza suporte a Proxy para evitar barreiras de IP em servidores cloud como AWS.
+    """
+
     def __init__(self):
         super().__init__('MercadoLivre')
         self.driver = self._configurar_driver()
 
     def _configurar_driver(self):
-        edge_options = Options()
-        edge_options.add_argument("--disable-gpu")
-        edge_options.add_argument("--window-size=1920,1080")
-        edge_options.add_argument("--disable-blink-features=AutomationControlled")
-        edge_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        edge_options.add_experimental_option('useAutomationExtension', False)
+        """Configura o Chrome Headless com Spoofing e suporte a Proxy."""
+        options = uc.ChromeOptions()
         
-        self.logger.info("Inicializando o motor do Edge para o Mercado Livre...")
-        driver = webdriver.Edge(options=edge_options)
+        options.add_argument("--headless=new")
+        options.add_argument("--window-size=1920,1080")
+        options.add_argument("--start-maximized")
+        
+        options.add_argument("--lang=pt-BR,pt;q=0.9")
+        user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        options.add_argument(f"--user-agent={user_agent}")
+        
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--disable-site-isolation-trials")
+        options.add_argument("--disable-features=IsolateOrigins,site-per-process")
+        options.add_argument("--log-level=3")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+
+        proxy_servidor = os.getenv("PROXY_MERCADO_LIVRE", "")
+        if proxy_servidor:
+            options.add_argument(f'--proxy-server={proxy_servidor}')
+            self.logger.info("Camada de Proxy ativada para navegacao anonima.")
+
+        self.logger.info("Inicializando o motor do Chrome (Undetected) para varredura de mercado...")
+        
+        try:
+            import platform
+            if platform.system() == "Windows":
+                import winreg
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Google\Chrome\BLBeacon")
+                versao, _ = winreg.QueryValueEx(key, "version")
+                winreg.CloseKey(key)
+                versao_main = int(versao.split('.')[0])
+            else:
+                import subprocess
+                process = subprocess.Popen(['google-chrome', '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                output, _ = process.communicate()
+                versao_main = int(output.decode('utf-8').strip().split()[-1].split('.')[0])
+            
+            driver = uc.Chrome(options=options, version_main=versao_main)
+        except Exception:
+            driver = uc.Chrome(options=options)
+            
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         return driver
-
-    def _verificar_captcha(self, soup):
-        titulo_pagina = soup.title.text.lower() if soup.title else ""
-        if "verifique" in titulo_pagina or "robô" in titulo_pagina or "captcha" in titulo_pagina:
-            return True
-        return False
-
-    def _limpar_termo(self, termo):
-        # Substitui espacos por hifens, padrao de URL do ML
-        termo_limpo = re.sub(r'\b(lata|pet)\b', '', termo, flags=re.IGNORECASE)
-        termo_limpo = re.sub(r'\s+', ' ', termo_limpo).strip()
-        return termo_limpo.replace(' ', '-')
-
-    def _filtrar_melhor_resultado(self, termo_original, marca, resultados):
-        if not resultados:
-            return None
-            
-        termo_lower = termo_original.lower()
-        marca_norm = marca.lower()
-        marca_variacoes = [marca_norm, marca_norm.replace('-', ' '), marca_norm.replace('-', '')]
-        
-        busca_zero = any(w in termo_lower for w in ['zero', 'diet', 'light', 'sem açucar', 'sem açúcar'])
-        
-        sabores_comuns = ['café', 'cafe', 'cherry', 'baunilha', 'limão', 'limao', 'laranja', 'maracuja', 'morango', 'uva', 'guaraná', 'guarana']
-        sabores_proibidos = [s for s in sabores_comuns if s not in termo_lower]
-
-        padrao_volume = re.search(r'(\d+(?:[.,]\d+)?)\s*(ml|l|kg|g|litros?)\b', termo_original, flags=re.IGNORECASE)
-        vol_buscado_val = -1
-        tipo_medida = None
-        
-        def extrair_medida(v_num_str, v_unit):
-            try:
-                val = float(v_num_str.replace(',', '.'))
-                if v_unit == 'l' or v_unit.startswith('litro'): return val * 1000, 'ml'
-                if v_unit == 'ml': return val, 'ml'
-                if v_unit == 'kg': return val * 1000, 'g'
-                if v_unit == 'g': return val, 'g'
-                return -1, None
-            except:
-                return -1, None
-
-        if padrao_volume:
-            v_n = padrao_volume.group(1)
-            v_u = padrao_volume.group(2).lower()
-            vol_buscado_val, tipo_medida = extrair_medida(v_n, v_u)
-
-        for item in resultados:
-            titulo_norm = item['titulo'].lower()
-            
-            # 1. Filtro Marca
-            if not any(m in titulo_norm for m in marca_variacoes):
-                continue
-            
-            # 2. Sabores Proibidos
-            if any(re.search(rf'\b{s}\b', titulo_norm) for s in sabores_proibidos):
-                continue
-            
-            # 3. Diet/Light/Zero
-            is_zero = any(w in titulo_norm for w in ['zero', 'diet', 'light', 'sem açucar', 'sem açúcar'])
-            if busca_zero and not is_zero: continue
-            if not busca_zero and is_zero: continue
-                
-            # 4. Embalagem Lata/Pet
-            is_lata_busca = 'lata' in termo_lower
-            is_pet_busca = 'pet' in termo_lower or 'garrafa' in termo_lower
-            is_lata_item = 'lata' in titulo_norm
-            is_pet_item = 'pet' in titulo_norm or 'garrafa' in titulo_norm
-
-            if is_lata_busca and is_pet_item: continue
-            if is_pet_busca and is_lata_item: continue
-
-            # 5. Volume Semantico
-            titulo_norm_medida = titulo_norm.replace('litros', 'l').replace('litro', 'l')
-            titulo_norm_medida = re.sub(r'(\d)\s+(ml|l|kg|g)\b', r'\1\2', titulo_norm_medida) 
-            
-            if vol_buscado_val > 0:
-                vols_no_titulo = re.findall(r'\b(\d+(?:[.,]\d+)?)(ml|l|kg|g)\b', titulo_norm_medida)
-                
-                achou_vol_correto = False
-                tem_vol_errado = False
-                
-                for vn, vu in vols_no_titulo:
-                    v_val, v_tipo = extrair_medida(vn, vu)
-                    if v_tipo == tipo_medida and v_val > 0:
-                        if v_val == vol_buscado_val:
-                            achou_vol_correto = True
-                        else:
-                            tem_vol_errado = True
-                
-                if not achou_vol_correto:
-                    continue
-                if tem_vol_errado:
-                    continue
-                
-            return item 
-            
-        return None
-
-    def _extrair_anuncios_da_pagina(self, soup):
-        cards = soup.find_all('li', class_='ui-search-layout__item')
-        if not cards: 
-            cards = soup.find_all('div', class_=lambda c: c and 'poly-card' in c)
-
-        resultados_validos = []
-
-        for card in cards:
-            link_elem = card.find('a', href=True)
-            titulo_elem = card.find('h2') or card.find('h3') or link_elem
-            
-            # Tratamento de Precos ML
-            preco_elem = card.find('span', class_='andes-money-amount__fraction')
-            
-            if titulo_elem and preco_elem and link_elem:
-                titulo = titulo_elem.text.strip()
-                if not titulo: 
-                    titulo = link_elem.text.strip()
-                
-                preco_texto = preco_elem.text.replace('.', '')
-                try:
-                    preco_float = float(preco_texto)
-                except:
-                    continue
-                
-                link = link_elem['href']
-
-                resultados_validos.append({
-                    "titulo": titulo,
-                    "preco": preco_float,
-                    "link": link
-                })
-
-        return resultados_validos
 
     def extrair_dados(self):
         produtos = self.carregar_produtos_alvo()
         
         if not produtos:
-            self.logger.warning("[AVISO] A lista de produtos esta vazia.")
+            self.logger.warning("A lista de produtos esta vazia.")
             if self.driver: self.driver.quit()
             return
 
         for produto in produtos:
             termo_original = produto['termo_busca']
-            marca_alvo = produto['marca']
-            termo_formatado = self._limpar_termo(termo_original)
+            termo_url = termo_original.replace(' ', '-')
+            url_busca = f"https://lista.mercadolivre.com.br/supermercado/{termo_url}"
             
-            url = f"https://lista.mercadolivre.com.br/supermercado/{termo_formatado}"
-            
-            self.logger.info(f"Processando extracao para: {termo_original} | Marca: {marca_alvo}")
+            self.logger.info(f"Escaneando listagens web para: {termo_original}")
             
             try:
-                self.driver.get(url)
-                WebDriverWait(self.driver, 10).until(
+                self.driver.get(url_busca)
+                
+                WebDriverWait(self.driver, 15).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, '.ui-search-layout__item, [class*="poly-card"]'))
                 )
                 time.sleep(2)
                 
-                html_renderizado = self.driver.page_source
-                soup = BeautifulSoup(html_renderizado, 'html.parser')
+                soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+                
+                cards = soup.find_all('li', class_='ui-search-layout__item')
+                if not cards: 
+                    cards = soup.find_all('div', class_=lambda c: c and 'poly-card' in c)
 
-                if self._verificar_captcha(soup):
-                    self.logger.error(f"[ERRO] CAPTCHA detectado na busca por {termo_original}. O ML bloqueou o bot.")
-                    time.sleep(10)
+                if not cards:
+                    self.logger.warning(f"Nenhum anuncio localizado na pagina para: {termo_original}")
                     continue
 
-                anuncios_brutos = self._extrair_anuncios_da_pagina(soup)
+                ofertas_validas = []
+                termo_lower = termo_original.lower()
+                busca_zero = any(w in termo_lower for w in ['zero', 'diet', 'light', 'sem açucar', 'sem acucar', 'sem açúcar'])
+                marca_limpa = produto['marca'].lower()
 
-                if not anuncios_brutos:
-                    self.logger.warning(f"[AVISO] Sem anuncios localizados na vitrine para {termo_original}.")
-                    continue
+                match_alvo = re.search(r'(\d+(?:[.,]\d+)?)\s*(ml|l)\b', termo_lower)
+                qtd_alvo = float(match_alvo.group(1).replace(',', '.')) if match_alvo else None
+                unit_alvo = match_alvo.group(2) if match_alvo else None
 
-                item_data = self._filtrar_melhor_resultado(termo_original, marca_alvo, anuncios_brutos)
-
-                if item_data and item_data['preco']:
-                    dados_preco = self.normalizar_preco(item_data['titulo'], item_data['preco'])
+                for card in cards:
+                    link_elem = card.find('a', href=True)
+                    titulo_elem = card.find('h2') or card.find('h3') or link_elem
+                    preco_frao = card.find('span', class_='andes-money-amount__fraction')
                     
+                    if titulo_elem and preco_frao and link_elem:
+                        titulo = titulo_elem.text.strip()
+                        if not titulo: continue
+                        
+                        titulo_norm = titulo.lower()
+
+                        if marca_limpa not in titulo_norm:
+                            continue
+
+                        if not busca_zero and any(w in titulo_norm for w in ['zero', 'diet', 'light', 'sem açucar', 'sem acucar', 'sem açúcar']):
+                            continue
+
+                        if qtd_alvo and unit_alvo:
+                            match_item = re.search(r'(\d+(?:[.,]\d+)?)\s*(ml|l)\b', titulo_norm)
+                            if match_item:
+                                qtd_item = float(match_item.group(1).replace(',', '.'))
+                                unit_item = match_item.group(2)
+                                if qtd_item != qtd_alvo or unit_item != unit_alvo:
+                                    continue
+                            else:
+                                continue
+
+                        preco_texto = preco_frao.text.replace('.', '').strip()
+                        preco_centavos = card.find('span', class_='andes-money-amount__cents')
+                        centavos = preco_centavos.text.strip() if preco_centavos else "00"
+                        preco_final = float(f"{preco_texto}.{centavos}")
+
+                        link = link_elem['href']
+                        dados_preco = self.normalizar_preco(titulo, preco_final)
+
+                        ofertas_validas.append({
+                            "titulo": titulo,
+                            "preco": preco_final,
+                            "link": link,
+                            "dados_preco": dados_preco
+                        })
+
+                if not ofertas_validas:
+                    self.logger.warning(f"Nenhum item atendeu aos criterios de validacao para: {termo_original}")
+                    continue
+
+                ofertas_validas.sort(key=lambda x: x['dados_preco']['preco_unitario'])
+
+                encontrados = 0
+                for oferta in ofertas_validas:
+                    if encontrados >= 1:
+                        break
+
                     self.dados_extraidos.append({
                         "data_extracao": datetime.now().isoformat(),
                         "site": self.nome_site,
                         "categoria": produto['categoria'],
                         "marca": produto['marca'],
                         "termo_buscado": termo_original,
-                        "titulo_anuncio": item_data['titulo'],
-                        "quantidade_embalagem": dados_preco["quantidade_embalagem"],
-                        "preco_total_anuncio": dados_preco["preco_total_anuncio"],
-                        "preco_unitario": dados_preco["preco_unitario"],
-                        "link": item_data['link']
+                        "titulo_anuncio": oferta['titulo'],
+                        "quantidade_embalagem": oferta['dados_preco']["quantidade_embalagem"],
+                        "preco_total_anuncio": oferta['dados_preco']["preco_total_anuncio"],
+                        "preco_unitario": oferta['dados_preco']["preco_unitario"],
+                        "link": oferta['link']
                     })
-                    self.logger.info(f"[SUCESSO] Item capturado: {item_data['titulo'][:40]}... | Preco Unitario: R${dados_preco['preco_unitario']}")
-                else:
-                    self.logger.warning(f"[AVISO] Nenhum item atendeu aos criterios de filtro para: {termo_original}")
-            
+                    encontrados += 1
+                    self.logger.info(f"[SUCESSO] MELHOR PRECO CAPTURADO: {oferta['titulo']}")
+
             except Exception as e:
-                self.logger.error(f"[ERRO] Falha inesperada durante a automacao de {termo_original}: {e}")
+                self.logger.error(f"[ERRO] Erro operacional durante a automacao de {termo_original}: {e}")
         
         self.salvar_dados()
         if self.driver: 
             self.driver.quit()
 
 if __name__ == "__main__":
-    MercadoLivreScraper().extrair_dados()
+    scraper = MercadoLivreScraper()
+    scraper.extrair_dados()

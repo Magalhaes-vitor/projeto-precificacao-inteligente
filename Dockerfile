@@ -1,32 +1,28 @@
 # Imagem oficial leve do Python
 FROM python:3.11-slim
 
-# Evita a gravação de arquivos .pyc e força os logs direto no terminal da AWS
+# Força os logs a aparecerem em tempo real no CloudWatch da AWS
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Atualiza dependências do SO, instala o Microsoft Edge e o Xvfb (Monitor Virtual)
+# Instala apenas o Google Chrome (Sem o xvfb!)
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg2 \
     apt-transport-https \
     unzip \
-    xvfb \
-    && wget -q -O - https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
-    && echo "deb [arch=amd64] https://packages.microsoft.com/repos/edge stable main" > /etc/apt/sources.list.d/microsoft-edge.list \
+    && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor > /usr/share/keyrings/google-chrome.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
-    && apt-get install -y microsoft-edge-stable \
+    && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
-# Define o diretório de trabalho no container
 WORKDIR /app
 
-# Copia e instala as dependências Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia todo o código do projeto para dentro do container
 COPY . .
 
-# Comando de arranque (o Orquestrador)
-CMD ["python", "main.py"]
+# Comando de arranque limpo e direto
+CMD ["python", "scrapers/main.py"]

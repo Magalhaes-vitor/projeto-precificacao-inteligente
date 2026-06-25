@@ -1,7 +1,9 @@
 import time
 import re
+import subprocess
+import platform
+import undetected_chromedriver as uc
 from datetime import datetime
-
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.edge.options import Options
@@ -13,18 +15,62 @@ class AmazonScraper(BaseScraper):
         super().__init__('Amazon')
         self.driver = self._configurar_driver()
 
-    def _configurar_driver(self):
-        edge_options = Options()
-        edge_options.add_argument("--disable-gpu")
-        edge_options.add_argument("--window-size=1920,1080")
-        edge_options.add_argument("--disable-blink-features=AutomationControlled")
-        edge_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        edge_options.add_experimental_option('useAutomationExtension', False)
-        edge_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    def _obter_versao_chrome(self):
+        """Descobre a versão principal do Chrome (Funciona em Windows e Linux)."""
+        try:
+            if platform.system() == "Windows":
+                # Comando para consultar o registo do Windows
+                cmd = 'powershell -command "(Get-ItemProperty -Path Registry::HKEY_CURRENT_USER\\Software\\Google\\Chrome\\BLBeacon).version"'
+                process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                output, _ = process.communicate()
+                versao_completa = output.decode('utf-8').strip()
+            else:
+                # Comando para Linux (AWS Fargate)
+                process = subprocess.Popen(['google-chrome', '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                output, _ = process.communicate()
+                versao_completa = output.decode('utf-8').strip()
+            
+            # Extrai apenas os primeiros números
+            match = re.search(r'\d+', versao_completa)
+            if match:
+                versao = int(match.group(0))
+                self.logger.info(f"Versão do Chrome detectada dinamicamente: {versao}")
+                return versao
+                
+        except Exception as e:
+            self.logger.warning(f"Erro ao detectar versão do Chrome: {e}")
         
-        self.logger.info("Inicializando o motor do Edge para a Amazon...")
-        driver = webdriver.Edge(options=edge_options)
-        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        self.logger.warning("Não foi possível detectar a versão do Chrome. Usando padrão.")
+        return None
+
+    def _configurar_driver(self):
+        """Configura o Chrome Indetetável para bypass de proteção sem usar Xvfb."""
+        options = uc.ChromeOptions()
+        
+        # Flags essenciais para Fargate e modo Headless (Invisível)
+        options.add_argument('--headless')
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--window-size=1920,1080")
+        
+        # Metodo contra estouro de RAM (OOM) no Fargate
+        options.add_argument("--disable-site-isolation-trials")
+        options.add_argument("--disable-features=IsolateOrigins,site-per-process")
+        
+        # Oculta logs do terminal
+        options.add_argument("--log-level=3")
+        
+        self.logger.info("Inicializando o motor do Chrome (Undetected)...")
+        
+        # Arranca o driver indetetável
+        versao_dinamica = self._obter_versao_chrome()
+        
+        if versao_dinamica:
+            driver = uc.Chrome(options=options, headless=True, version_main=versao_dinamica)
+        else:
+            # Fallback caso algo falhe, ele tenta o comportamento normal
+            driver = uc.Chrome(options=options, headless=True)
+            
         return driver
 
     def _verificar_captcha(self, soup):
