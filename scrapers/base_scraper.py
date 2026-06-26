@@ -12,8 +12,9 @@ class BaseScraper(ABC):
     persistência de dados e normalização analítica (Regex).
     """
 
-    def __init__(self, nome_site: str):
+    def __init__(self, nome_site: str, versao_chrome: int = None):
         self.nome_site = nome_site
+        self.versao_chrome = versao_chrome  # Armazena a versão para uso das classes filhas
         self.dados_extraidos = []
         self._configurar_logger()
 

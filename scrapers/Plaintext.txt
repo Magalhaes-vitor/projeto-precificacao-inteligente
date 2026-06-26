@@ -1,7 +1,25 @@
 projeto-precificacao-inteligente/
-├── ...
+├── .env.example                 # Modelo de variáveis de ambiente (Credenciais AWS, Proxy ML)
+├── Dockerfile                   # Arquivo de build da imagem do contêiner para o AWS ECS (Fargate)
+├── main.py                      # Orquestrador principal do pipeline (Extração Bronze -> Silver -> AWS S3)
+├── README.md                    # Relatório técnico do projeto, status do MVP e manual de uso local/nuvem
+├── requirements.txt             # Lista de dependências (undetected-chromedriver, bs4, requests, boto3)
+│
+├── data_samples/                # Diretório efêmero (limpo automaticamente ao fim do processo)
+│   ├── *bronze*.json            # Arquivos RAW temporários gerados por cada e-commerce
+│   └── ERRO_ML_*.png            # (Opcional) Screenshots de bloqueios e erros da automação
+│
 └── scrapers/
-    ├── __init__.py               # Arquivo vazio (indica que é um módulo Python)
-    ├── config_produtos.json      # Nossa lista de produtos
-    ├── base_scraper.py           # Nossa Classe Mãe (Padrão de Projeto)
-    └── mercado_livre_scraper.py  # Nosso primeiro alvo
+    ├── __init__.py              # Indica que a pasta é um módulo Python
+    ├── config_produtos.json     # Nossa base de conhecimento (Lista de produtos, marcas e termos de busca)
+    ├── base_scraper.py          # Nossa Classe Mãe (Padrão de Projeto, Normalização e Engine principal)
+    │
+    # --- CRAWLERS ATIVOS NO MVP DA AWS ---
+    ├── amazon_scraper.py        # Crawler da Amazon
+    ├── atacadao_scraper.py      # Crawler do Atacadão (Com fluxo de CEP)
+    ├── pao_de_acucar_scraper.py # Crawler do Pão de Açúcar
+    ├── tenda_atacado_scraper.py # Crawler do Tenda Atacado
+    ├── ze_delivery_scraper.py   # Crawler do Zé Delivery (Com fluxo de localização)
+    │
+    # --- CRAWLERS EM STANDBY / QUARENTENA ---
+    └── mercado_livre_scraper.py # Crawler do ML (Exige Proxy Residencial para rodar na nuvem AWS contra a Akamai)
