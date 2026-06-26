@@ -105,8 +105,12 @@ def processar_camada_silver(diretorio_dados='data_samples'):
     
     # 6. LOAD (Local Disk e AWS S3)
     data_hoje = datetime.now().strftime('%Y%m%d')
-    caminho_parquet = os.path.join(diretorio_dados, f'dataset_silver_{data_hoje}.parquet')
-    caminho_csv = os.path.join(diretorio_dados, f'dataset_silver_{data_hoje}.csv')
+    caminho_parquet = os.path.join(diretorio_dados, 'parquet', f'dataset_silver_{data_hoje}.parquet')
+    caminho_csv = os.path.join(diretorio_dados, 'csv', f'dataset_silver_{data_hoje}.csv')
+    
+    #. Cria as pastas físicas 'parquet' e 'csv' no ambiente local caso elas não existam
+    os.makedirs(os.path.dirname(caminho_parquet), exist_ok=True)
+    os.makedirs(os.path.dirname(caminho_csv), exist_ok=True)
     
     try:
         # Gravação Local
@@ -115,8 +119,8 @@ def processar_camada_silver(diretorio_dados='data_samples'):
         logger.info("[SUCESSO] Camada Silver gerada com sucesso localmente!")
         
         # Sincronização com AWS S3
-        nome_s3_parquet = f"silver/dataset_silver_{data_hoje}.parquet"
-        nome_s3_csv = f"silver/dataset_silver_{data_hoje}.csv"
+        nome_s3_parquet = f"silver/parquet/dataset_silver_{data_hoje}.parquet"
+        nome_s3_csv = f"silver/csv/dataset_silver_{data_hoje}.csv"
         
         logger.info("[INFO] A iniciar sincronização com o Amazon S3...")
         upload_pq = upload_para_s3(caminho_parquet, nome_s3_parquet)
