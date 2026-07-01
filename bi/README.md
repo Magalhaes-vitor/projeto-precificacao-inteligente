@@ -62,7 +62,7 @@ A inteligência competitiva foi traduzida em fórmulas DAX para detetar oportuni
 
 ---
 
-## 📱 Estrutura do Relatório
+##  Estrutura do Relatório
 
 O painel foi desenhado com um layout claro e pragmático, dividido em duas frentes táticas:
 
